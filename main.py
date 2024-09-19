@@ -1,16 +1,32 @@
+import os
 from fastapi import FastAPI, HTTPException, Form
 from pydantic import BaseModel, HttpUrl
 from pymongo import MongoClient
 import string
 import random
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
+from dotenv import load_dotenv
+
+load_dotenv()
+
+DB_URL=os.getenv("DB_URL")
+ORIGINS=os.getenv("ORIGINS").split(",")
 
 # Conexión a la base de datos MongoDB
-client = MongoClient("mongodb://localhost:27017/")
+client = MongoClient(DB_URL)
 db = client["shortener"]
 collection = db["links"]
 
-app = FastAPI()
+app = FastAPI(title="URL Shortener")
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=ORIGINS,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # Función para generar el código corto
 def generate_short_code(length=6):
@@ -39,12 +55,20 @@ async def shorten_link(url: str = Form(...)):
     return {"short_url": short_url}
 
 # Endpoint para redirigir el enlace corto
-@app.get("/{short_code}")
-async def redirect_link(short_code: str):
-    # Busca el código corto en la base de datos
+@app.get("/get-link/{short_code}")
+async def get_original_link(short_code: str):
     link = collection.find_one({"short_code": short_code})
     if not link:
         raise HTTPException(status_code=404, detail="Link not found")
+    return JSONResponse(
+            content={"original_url": link["original_url"]},
+            headers={"Content-Type": "application/json"}
+        )
 
-    return {"original_url": link["original_url"]}
 
+@app.get("/{short_code}")
+async def redirect_link(short_code: str):
+    link = collection.find_one({"short_code": short_code})
+    if not link:
+        raise HTTPException(status_code=404, detail="Link not found")
+    return RedirectResponse(url=link["original_url"])
