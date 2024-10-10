@@ -47,7 +47,7 @@ async def shorten_link(url: str = Form(...)):
 
     # Si no existe, genera un nuevo código corto
     short_code = generate_short_code()
-    short_url = f"http://localhost:8000/{short_code}"
+    short_url = f"https://url-shortener-1-qbrq.onrender.com/{short_code}"
 
     # Guarda el nuevo enlace en la base de datos
     collection.insert_one({"original_url": url, "short_url": short_url, "short_code": short_code})
